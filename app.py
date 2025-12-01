@@ -1,11 +1,8 @@
 import app
 import random
 from events.input import Buttons, BUTTON_TYPES
-# We assume 'clear_background' is available from a Tildagon utility component
-# and 'display' is available for graphics, as suggested by the badge documentation.
-# If these causes errors, they need to be imported or replaced with native ctx calls.
-from app_components import clear_background 
-import display 
+# REMOVED: from app_components import clear_background 
+# REMOVED: import display 
 
 # --- Badgagotchi Constants ---
 MAX_STAT = 100
@@ -18,7 +15,6 @@ class Badgagotchi(app.App):
     """
     A prototype for a Tamagotchi-style app for the EMF Tildagon Badge.
     It tracks Hunger, Happiness, and Poo levels, simulating time-based decay.
-    The class is named 'Badgagotchi' to match the name expected by the simulator's
     """
 
     def __init__(self):
@@ -72,7 +68,7 @@ class Badgagotchi(app.App):
 
         if self.tick_counter >= TICK_RATE:
             self.tick_counter = 0
-            # Slower Decay Rates for background mode (Updated from 5, 3, 8)
+            # Slower Decay Rates for background mode
             self._process_decay(
                 hunger_decay=4, 
                 happiness_decay=2, 
@@ -125,14 +121,16 @@ class Badgagotchi(app.App):
             self.poo = min(MAX_STAT, self.poo + 5) # Feeding increases poo slightly
             self.status_message = "Yum!"
 
-        # LEFT button: Play
+        # RIGHT button: Play 
         elif self.button_states.get(BUTTON_TYPES["RIGHT"]):
             self.button_states.clear()
             self.happiness = min(MAX_STAT, self.happiness + 30)
-            self.hunger = min(MAX_STAT, self.hunger - 10) # Playing is exercise, decreases hunger
+            # FIX: Change to `self.hunger = max(MIN_STAT, self.hunger - 10)` to prevent a crash if hunger is < 10
+            self.hunger = max(MIN_STAT, self.hunger - 10) # Playing is exercise, decreases hunger
             self.status_message = "Haha! Woo!"
 
-        # RIGHT button: Clean
+        # CONFIRM button: Clean (The original code used RIGHT for this, 
+        # but CONFIRM makes more sense for a dedicated action button)
         elif self.button_states.get(BUTTON_TYPES["CONFIRM"]):
             self.button_states.clear()
             self.poo = 0 # Clean the environment
@@ -170,18 +168,18 @@ class Badgagotchi(app.App):
     def draw(self, ctx):
         """
         Called roughly every 0.05 seconds to update the screen display.
-        This uses the ctx graphics library.
         """
-        # Clear the badge screen (black background)
-        clear_background(ctx)
-
+        # --- FIX: Ensure full screen clear ---
+        # The Tildagon screen is roughly 240x240. A 300x300 rectangle centered 
+        # at (0, 0) guarantees a full clear.
+        ctx.rgb(0, 0, 0).rectangle(-150, -150, 300, 300).fill()
+        
         # --- Pet Critical Status Check ---
-        # Pet gets 'X' eyes if any core stat hits a critical failure point ('0' or max poo)
         is_critical = (self.poo == MAX_STAT or 
                        self.happiness == MIN_STAT or 
                        self.hunger == MIN_STAT)
 
-        # --- 1. Draw Pet Visual (Simple Hexagon/Circle) ---
+        # --- 1. Draw Pet Visual (Simple Square) ---
         pet_color = (1, 0.5, 0.8) # Default Pink/Purple
 
         # Priority 1: High Poo (Brown)
@@ -196,16 +194,12 @@ class Badgagotchi(app.App):
         if self.happiness < 30 and self.hunger >= 15 and self.poo <= 75:
              pet_color = (0.0, 0.5, 1.0) # Blue (Sad)
 
-        # Draw the main pet body (a simple shape)
+        # Draw the main pet body (a simple square/rectangle)
         ctx.rgb(*pet_color).fill()
         
-        # Drawing a hexagon centered at (0, -75) with size 30 
-        try:
-             display.hexagon(ctx, 0, -75, 30) 
-        except NameError:
-             # Fallback to drawing a simple SQUARE (60x60)
-             # Centered at (0, -75). 
-             ctx.rectangle(-30, -105, 60, 60).fill()
+        # FIX 3: Removed non-standard display.hexagon and kept the robust fallback square
+        # Centered at (0, -75). 
+        ctx.rectangle(-30, -105, 60, 60).fill()
 
         # --- Draw Eyes ---
         eye_size = 10
@@ -214,7 +208,7 @@ class Badgagotchi(app.App):
         if is_critical:
             # Draw X eyes for critical state
             line_width = 2
-            # FIX: Set line width as a property before calling stroke()
+            # Set line width
             ctx.line_width = line_width
             
             # Right X (centered near 15, -85)
