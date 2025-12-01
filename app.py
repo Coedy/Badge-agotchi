@@ -1,8 +1,6 @@
 import app
 import random
 from events.input import Buttons, BUTTON_TYPES
-# REMOVED: from app_components import clear_background 
-# REMOVED: import display 
 
 # --- Badgagotchi Constants ---
 MAX_STAT = 100
@@ -29,9 +27,6 @@ class Badgagotchi(app.App):
         self.tick_counter = 0
         self.button_states = Buttons(self)
         self.status_message = "Hi There!"
-
-        print("Badgagotchi initialized.")
-
 
     def _process_decay(self, hunger_decay, happiness_decay, poo_growth):
         """Helper to apply decay/growth and status checks."""
@@ -125,12 +120,11 @@ class Badgagotchi(app.App):
         elif self.button_states.get(BUTTON_TYPES["RIGHT"]):
             self.button_states.clear()
             self.happiness = min(MAX_STAT, self.happiness + 30)
-            # FIX: Change to `self.hunger = max(MIN_STAT, self.hunger - 10)` to prevent a crash if hunger is < 10
-            self.hunger = max(MIN_STAT, self.hunger - 10) # Playing is exercise, decreases hunger
+            # FIX: Ensure hunger decrease does not go below MIN_STAT (0)
+            self.hunger = max(MIN_STAT, self.hunger - 10) 
             self.status_message = "Haha! Woo!"
 
-        # CONFIRM button: Clean (The original code used RIGHT for this, 
-        # but CONFIRM makes more sense for a dedicated action button)
+        # CONFIRM button: Clean
         elif self.button_states.get(BUTTON_TYPES["CONFIRM"]):
             self.button_states.clear()
             self.poo = 0 # Clean the environment
@@ -144,7 +138,9 @@ class Badgagotchi(app.App):
         """Helper function to draw a single stat bar on the ctx canvas."""
         bar_width = 130 # Total width
         bar_height = 12 # Total height
-        fill_width = (value / MAX_STAT) * bar_width
+        
+        # FIX: Ensure floating-point division for reliable width calculation
+        fill_width = (float(value) / MAX_STAT) * bar_width
         
         # Horizontal shift offset
         X_OFFSET = 10 
@@ -194,10 +190,9 @@ class Badgagotchi(app.App):
         if self.happiness < 30 and self.hunger >= 15 and self.poo <= 75:
              pet_color = (0.0, 0.5, 1.0) # Blue (Sad)
 
-        # Draw the main pet body (a simple square/rectangle)
-        ctx.rgb(*pet_color).fill()
+        # FIX: Correctly sequence color setting and drawing to avoid crashing the context
+        ctx.rgb(*pet_color)
         
-        # FIX 3: Removed non-standard display.hexagon and kept the robust fallback square
         # Centered at (0, -75). 
         ctx.rectangle(-30, -105, 60, 60).fill()
 
