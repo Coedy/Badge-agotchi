@@ -5,7 +5,7 @@ from events.input import Buttons, BUTTON_TYPES
 # --- Badgagotchi Constants ---
 MAX_STAT = 100
 MIN_STAT = 0
-# Update logic every 50 * 0.05s = 2.5 seconds to slow down decay
+# Update logic every 50 * 0.05s = 2.5 seconds (Faster Decay)
 TICK_RATE = 50 
 POO_THRESHOLD = 50 # Threshold for the "Needs cleaning" warning
 
@@ -223,6 +223,8 @@ class Badgagotchi(app.App):
             # Left Eye (centered near -15, -85)
             ctx.rectangle(-15 - eye_size/2, -85 - eye_size/2, eye_size, eye_size).fill()
 
+        # FIX (V0.0.5): Explicitly reset line_width to prevent crash during subsequent text/fill calls
+        ctx.line_width = 1 
 
         # --- 2. Display Status Message ---
         ctx.font_size = 18
