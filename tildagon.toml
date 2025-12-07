@@ -31,7 +31,7 @@ license = "LGPL-3.0-only"
 url = "https://github.com/Coedy/Badge-agotchi"
 
 # Description of your app.  Maximum 140 characters!
-description = "A Tamagotchi style game - Made entirely by Google Gemini."
+description = "A Tamagotchi style game - VibeCoded with Google Gemini."
 
 # Version number of your app.  If you push a commit where this number is
 # increased, we interpret this as a new version being released.
