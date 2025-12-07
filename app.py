@@ -142,8 +142,9 @@ class Badgagotchi(app.App):
         bar_width = 130 # Total width
         bar_height = 12 # Total height
         
-        # FIX (V0.0.4): Ensure floating-point division for reliable width calculation
-        fill_width = (float(value) / MAX_STAT) * bar_width
+        # V0.0.7 FIX: Explicitly cast fill_width to int to avoid floating-point/NaN errors
+        # that can crash low-level graphics implementations expecting integer dimensions.
+        fill_width = int((float(value) / MAX_STAT) * bar_width)
         
         # Horizontal shift offset
         X_OFFSET = 10 
