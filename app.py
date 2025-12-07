@@ -28,6 +28,9 @@ class Badgagotchi(app.App):
         self.button_states = Buttons(self)
         self.status_message = "Hi There!"
 
+        # REMOVED: print("Badgagotchi initialized.") for maximum stability on physical badge
+
+
     def _process_decay(self, hunger_decay, happiness_decay, poo_growth):
         """Helper to apply decay/growth and status checks."""
         # Use max(MIN_STAT, ...) to ensure the stat never goes below 0.
@@ -120,7 +123,7 @@ class Badgagotchi(app.App):
         elif self.button_states.get(BUTTON_TYPES["RIGHT"]):
             self.button_states.clear()
             self.happiness = min(MAX_STAT, self.happiness + 30)
-            # FIX: Ensure hunger decrease does not go below MIN_STAT (0)
+            # Fix in V0.0.1: Ensure hunger decrease does not go below MIN_STAT (0)
             self.hunger = max(MIN_STAT, self.hunger - 10) 
             self.status_message = "Haha! Woo!"
 
@@ -139,7 +142,7 @@ class Badgagotchi(app.App):
         bar_width = 130 # Total width
         bar_height = 12 # Total height
         
-        # FIX: Ensure floating-point division for reliable width calculation
+        # FIX (V0.0.4): Ensure floating-point division for reliable width calculation
         fill_width = (float(value) / MAX_STAT) * bar_width
         
         # Horizontal shift offset
@@ -190,7 +193,7 @@ class Badgagotchi(app.App):
         if self.happiness < 30 and self.hunger >= 15 and self.poo <= 75:
              pet_color = (0.0, 0.5, 1.0) # Blue (Sad)
 
-        # FIX: Correctly sequence color setting and drawing to avoid crashing the context
+        # FIX (V0.0.4): Correctly sequence color setting and drawing to avoid crashing the context
         ctx.rgb(*pet_color)
         
         # Centered at (0, -75). 
