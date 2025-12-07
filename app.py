@@ -143,7 +143,6 @@ class Badgagotchi(app.App):
         bar_height = 12 # Total height
         
         # V0.0.7 FIX: Explicitly cast fill_width to int to avoid floating-point/NaN errors
-        # that can crash low-level graphics implementations expecting integer dimensions.
         fill_width = int((float(value) / MAX_STAT) * bar_width)
         
         # Horizontal shift offset
@@ -170,8 +169,6 @@ class Badgagotchi(app.App):
         Called roughly every 0.05 seconds to update the screen display.
         """
         # --- FIX: Ensure full screen clear ---
-        # The Tildagon screen is roughly 240x240. A 300x300 rectangle centered 
-        # at (0, 0) guarantees a full clear.
         ctx.rgb(0, 0, 0).rectangle(-150, -150, 300, 300).fill()
         
         # --- Pet Critical Status Check ---
@@ -194,11 +191,19 @@ class Badgagotchi(app.App):
         if self.happiness < 30 and self.hunger >= 15 and self.poo <= 75:
              pet_color = (0.0, 0.5, 1.0) # Blue (Sad)
 
-        # FIX (V0.0.4): Correctly sequence color setting and drawing to avoid crashing the context
+        # V0.0.8 FIX: Use explicit begin/close path for filled rectangle drawing
+        # to ensure robust drawing on low-level graphics context, replacing .rectangle().fill()
         ctx.rgb(*pet_color)
-        
-        # Centered at (0, -75). 
-        ctx.rectangle(-30, -105, 60, 60).fill()
+        ctx.begin_path()
+        # Drawing the 60x60 square centered horizontally at 0, with top edge at -105
+        # Coordinates: (-30, -105) to (30, -45)
+        ctx.move_to(-30, -105)
+        ctx.line_to(30, -105)
+        ctx.line_to(30, -45)
+        ctx.line_to(-30, -45)
+        ctx.close_path()
+        ctx.fill()
+        # --- End V0.0.8 Fix ---
 
         # --- Draw Eyes ---
         eye_size = 10
