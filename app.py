@@ -5,8 +5,8 @@ from events.input import Buttons, BUTTON_TYPES
 # --- Badgagotchi Constants ---
 MAX_STAT = 100
 MIN_STAT = 0
-# Update logic every 75 * 0.05s = 3.75 seconds to slow down decay
-TICK_RATE = 75 
+# Update logic every 50 * 0.05s = 2.5 seconds to slow down decay
+TICK_RATE = 50 
 POO_THRESHOLD = 50 # Threshold for the "Needs cleaning" warning
 
 class Badgagotchi(app.App):
