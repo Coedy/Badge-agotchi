@@ -1,5 +1,7 @@
 import app
 import random
+# We need to import clear_background from app_components as recommended by the docs.
+from app_components import clear_background 
 from events.input import Buttons, BUTTON_TYPES
 
 # --- Badgagotchi Constants ---
@@ -27,8 +29,6 @@ class Badgagotchi(app.App):
         self.tick_counter = 0
         self.button_states = Buttons(self)
         self.status_message = "Hi There!"
-
-        # REMOVED: print("Badgagotchi initialized.") for maximum stability on physical badge
 
 
     def _process_decay(self, hunger_decay, happiness_decay, poo_growth):
@@ -142,7 +142,7 @@ class Badgagotchi(app.App):
         bar_width = 130 # Total width
         bar_height = 12 # Total height
         
-        # V0.0.7 FIX: Explicitly cast fill_width to int to avoid floating-point/NaN errors
+        # Explicitly cast fill_width to int to avoid floating-point/NaN errors
         fill_width = int((float(value) / MAX_STAT) * bar_width)
         
         # Horizontal shift offset
@@ -168,8 +168,9 @@ class Badgagotchi(app.App):
         """
         Called roughly every 0.05 seconds to update the screen display.
         """
-        # --- FIX: Ensure full screen clear ---
-        ctx.rgb(0, 0, 0).rectangle(-150, -150, 300, 300).fill()
+        # --- FIX: Use recommended helper to clear screen and hide menu ---
+        # This replaces the manual ctx.rgb(0, 0, 0).rectangle(-150, -150, 300, 300).fill()
+        clear_background(ctx)
         
         # --- Pet Critical Status Check ---
         is_critical = (self.poo == MAX_STAT or 
@@ -191,45 +192,22 @@ class Badgagotchi(app.App):
         if self.happiness < 30 and self.hunger >= 15 and self.poo <= 75:
              pet_color = (0.0, 0.5, 1.0) # Blue (Sad)
 
-        # V0.0.8 FIX: Use explicit begin/close path for filled rectangle drawing
-        # to ensure robust drawing on low-level graphics context, replacing .rectangle().fill()
+        # Draw the main pet body using standard rectangle fill
         ctx.rgb(*pet_color)
-        ctx.begin_path()
-        # Drawing the 60x60 square centered horizontally at 0, with top edge at -105
-        # Coordinates: (-30, -105) to (30, -45)
-        ctx.move_to(-30, -105)
-        ctx.line_to(30, -105)
-        ctx.line_to(30, -45)
-        ctx.line_to(-30, -45)
-        ctx.close_path()
-        ctx.fill()
-        # --- End V0.0.8 Fix ---
+        # Centered at (0, -75). 
+        ctx.rectangle(-30, -105, 60, 60).fill()
 
         # --- Draw Eyes ---
         eye_size = 10
         ctx.rgb(0, 0, 0)
         
-        if is_critical:
-            # Draw X eyes for critical state
-            line_width = 2
-            # Set line width
-            ctx.line_width = line_width
-            
-            # Right X (centered near 15, -85)
-            ctx.move_to(15 - eye_size/2, -85 - eye_size/2).line_to(15 + eye_size/2, -85 + eye_size/2).stroke()
-            ctx.move_to(15 - eye_size/2, -85 + eye_size/2).line_to(15 + eye_size/2, -85 - eye_size/2).stroke()
-            
-            # Left X (centered near -15, -85)
-            ctx.move_to(-15 - eye_size/2, -85 - eye_size/2).line_to(-15 + eye_size/2, -85 + eye_size/2).stroke()
-            ctx.move_to(-15 - eye_size/2, -85 + eye_size/2).line_to(-15 + eye_size/2, -85 - eye_size/2).stroke()
-        else:
-            # Draw square eyes (normal)
-            # Right Eye (centered near 15, -85)
-            ctx.rectangle(15 - eye_size/2, -85 - eye_size/2, eye_size, eye_size).fill()
-            # Left Eye (centered near -15, -85)
-            ctx.rectangle(-15 - eye_size/2, -85 - eye_size/2, eye_size, eye_size).fill()
+        # Eyes are simple filled rectangles, avoiding 'stroke' which caused issues.
+        # Right Eye (centered near 15, -85)
+        ctx.rectangle(15 - eye_size/2, -85 - eye_size/2, eye_size, eye_size).fill()
+        # Left Eye (centered near -15, -85)
+        ctx.rectangle(-15 - eye_size/2, -85 - eye_size/2, eye_size, eye_size).fill()
 
-        # FIX (V0.0.5): Explicitly reset line_width to prevent crash during subsequent text/fill calls
+        # Explicitly reset line_width as a safety measure (though less necessary now)
         ctx.line_width = 1 
 
         # --- 2. Display Status Message ---
