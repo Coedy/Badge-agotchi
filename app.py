@@ -51,7 +51,7 @@ class Badgagotchi(app.App):
     def background_update(self, delta):
         """
         CRITICAL FIX: Added delta parameter as REQUIRED by badge OS.
-        Called every 0.05 seconds when app is minimized.
+        Called every 0.05 seconds when app is minimized. Claude update
         """
         self.tick_counter += 1
 
