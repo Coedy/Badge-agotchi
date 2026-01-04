@@ -1,20 +1,17 @@
 import app
-import random
-# We need to import clear_background from app_components as recommended by the docs.
 from app_components import clear_background 
 from events.input import Buttons, BUTTON_TYPES
 
 # --- Badgagotchi Constants ---
 MAX_STAT = 100
 MIN_STAT = 0
-# Update logic every 50 * 0.05s = 2.5 seconds (Faster Decay)
-TICK_RATE = 50 
-POO_THRESHOLD = 50 # Threshold for the "Needs cleaning" warning
+TICK_RATE = 50  # 50 * 0.05s = 2.5 seconds between updates
+POO_THRESHOLD = 50
 
 class Badgagotchi(app.App):
     """
-    A prototype for a Tamagotchi-style app for the EMF Tildagon Badge.
-    It tracks Hunger, Happiness, and Poo levels, simulating time-based decay.
+    A Tamagotchi-style app for the EMF Tildagon Badge.
+    Tracks Hunger, Happiness, and Poo levels with time-based decay.
     """
 
     def __init__(self):
@@ -33,40 +30,34 @@ class Badgagotchi(app.App):
 
     def _process_decay(self, hunger_decay, happiness_decay, poo_growth):
         """Helper to apply decay/growth and status checks."""
-        # Use max(MIN_STAT, ...) to ensure the stat never goes below 0.
+        # Apply decay/growth with clamping
         self.hunger = max(MIN_STAT, self.hunger - hunger_decay)
         self.happiness = max(MIN_STAT, self.happiness - happiness_decay)
         self.poo = min(MAX_STAT, self.poo + poo_growth) 
 
-        # 2. Check current status and apply negative feedback
-        # NOTE: Status message update only happens in the foreground (update) 
-        # but the logic for happiness decay due to status runs in both.
+        # Check current status and apply negative feedback
         if self.hunger < 30:
-            # Hungry pet is unhappy, clamped to MIN_STAT
             self.happiness = max(MIN_STAT, self.happiness - 5) 
         
         if self.poo > POO_THRESHOLD:
-            # Dirty pet is unhappy, clamped to MIN_STAT
             self.happiness = max(MIN_STAT, self.happiness - 5) 
         
-        # Clamp all stats to ensure they stay between MIN_STAT and MAX_STAT
+        # Final clamp all stats to ensure valid range
         self.hunger = max(MIN_STAT, min(MAX_STAT, self.hunger))
         self.happiness = max(MIN_STAT, min(MAX_STAT, self.happiness))
         self.poo = max(MIN_STAT, min(MAX_STAT, self.poo))
 
 
-    # --- Logic Updates (Background/Foreground) ---
-
-    def background_update(self):
+    def background_update(self, delta):
         """
-        Called every 0.05 seconds when the app is minimized (background).
-        Uses a slower decay rate.
+        CRITICAL FIX: Added delta parameter as REQUIRED by badge OS.
+        Called every 0.05 seconds when app is minimized.
         """
         self.tick_counter += 1
 
         if self.tick_counter >= TICK_RATE:
             self.tick_counter = 0
-            # Slower Decay Rates for background mode
+            # Slower decay for background mode
             self._process_decay(
                 hunger_decay=4, 
                 happiness_decay=2, 
@@ -76,24 +67,24 @@ class Badgagotchi(app.App):
 
     def update(self, delta):
         """
-        Called every 0.05 seconds while the app is in the foreground.
-        Handles user input (button presses) and fast decay.
+        Called every 0.05 seconds while app is in foreground.
+        Handles user input and fast decay.
         """
         
-        # --- Time-based Decay Logic (Foreground - Fast Decay) ---
+        # --- Time-based Decay Logic ---
         self.tick_counter += 1
 
         if self.tick_counter >= TICK_RATE:
             self.tick_counter = 0
 
-            # Fast Decay Rates for foreground mode
+            # Fast decay for foreground mode
             self._process_decay(
                 hunger_decay=8, 
                 happiness_decay=5, 
                 poo_growth=12
             )
 
-            # Update status message for the user in the foreground
+            # Update status message
             if self.hunger < 30:
                 self.status_message = "I'm hungry!"
             elif self.poo > POO_THRESHOLD:
@@ -102,9 +93,8 @@ class Badgagotchi(app.App):
                 self.status_message = "Urgh, I'm Bored!"
             else:
                 self.status_message = "This is Great!"
-        # --- End Decay Logic ---
 
-        # Always check for the CANCEL button to exit the app
+        # Always check for CANCEL button to exit
         if self.button_states.get(BUTTON_TYPES["CANCEL"]):
             self.button_states.clear()
             self.minimise()
@@ -114,136 +104,125 @@ class Badgagotchi(app.App):
 
         # UP button: Feed
         if self.button_states.get(BUTTON_TYPES["UP"]):
-            self.button_states.clear() # Process once per press
+            self.button_states.clear()
             self.hunger = min(MAX_STAT, self.hunger + 30)
-            self.poo = min(MAX_STAT, self.poo + 5) # Feeding increases poo slightly
+            self.poo = min(MAX_STAT, self.poo + 5)
             self.status_message = "Yum!"
 
         # RIGHT button: Play 
         elif self.button_states.get(BUTTON_TYPES["RIGHT"]):
             self.button_states.clear()
             self.happiness = min(MAX_STAT, self.happiness + 30)
-            # Fix in V0.0.1: Ensure hunger decrease does not go below MIN_STAT (0)
             self.hunger = max(MIN_STAT, self.hunger - 10) 
             self.status_message = "Haha! Woo!"
 
         # CONFIRM button: Clean
         elif self.button_states.get(BUTTON_TYPES["CONFIRM"]):
             self.button_states.clear()
-            self.poo = 0 # Clean the environment
-            self.happiness = min(MAX_STAT, self.happiness + 15) # Pet is happier in a clean space
-            self.status_message = "Ahhh, clean and fresh."
+            self.poo = 0
+            self.happiness = min(MAX_STAT, self.happiness + 15)
+            self.status_message = "Ahhh, clean."
 
-
-    # --- Drawing/Visuals ---
 
     def draw_stat_bar(self, ctx, y_pos, label, value, color_rgb):
-        """Helper function to draw a single stat bar on the ctx canvas."""
-        bar_width = 130 # Total width
-        bar_height = 12 # Total height
+        """Draw a single stat bar. SAFE version with extra validation."""
+        bar_width = 130
+        bar_height = 12
         
-        # Explicitly cast fill_width to int to avoid floating-point/NaN errors
-        fill_width = int((float(value) / MAX_STAT) * bar_width)
+        # Safety: Ensure value is valid
+        if value is None or value < MIN_STAT:
+            value = MIN_STAT
+        if value > MAX_STAT:
+            value = MAX_STAT
         
-        # Horizontal shift offset
+        # Calculate fill width safely
+        fill_ratio = float(value) / float(MAX_STAT)
+        fill_width = int(fill_ratio * bar_width)
+        
         X_OFFSET = 10 
 
-        # Background bar (Gray/Dark) - Shifted right
-        ctx.rgb(0.2, 0.2, 0.2).rectangle(-bar_width/2 + X_OFFSET, y_pos, bar_width, bar_height).fill()
+        # Background bar (dark gray)
+        ctx.rgb(0.2, 0.2, 0.2)
+        ctx.rectangle(-bar_width/2 + X_OFFSET, y_pos, bar_width, bar_height)
+        ctx.fill()
         
-        # Foreground bar (Colored based on stat type) - Shifted right
-        ctx.rgb(*color_rgb).rectangle(-bar_width/2 + X_OFFSET, y_pos, fill_width, bar_height).fill()
+        # Foreground bar (colored)
+        if fill_width > 0:
+            ctx.rgb(*color_rgb)
+            ctx.rectangle(-bar_width/2 + X_OFFSET, y_pos, fill_width, bar_height)
+            ctx.fill()
 
-        # Text label - Shifted right
-        ctx.font_size = 12
+        # Label text - positioned to the left of the bar
         ctx.rgb(1, 1, 1)
-        # Horizontal position adjusted: -bar_width/2 - 5 + 10 (shifted right)
-        # Center text vertically: y_pos + (12 / 2) + 3 = y_pos + 9
-        ctx.move_to(-bar_width/2 + 5, y_pos + 9) 
-        ctx.text_align = "right" 
+        ctx.font_size = 12
+        ctx.move_to(-bar_width/2 + X_OFFSET - 50, y_pos + 9)
         ctx.text(label)
 
 
     def draw(self, ctx):
         """
-        Called roughly every 0.05 seconds to update the screen display.
+        Called roughly every 0.05 seconds to update screen display.
         """
-        # --- FIX: Use recommended helper to clear screen and hide menu ---
-        # This replaces the manual ctx.rgb(0, 0, 0).rectangle(-150, -150, 300, 300).fill()
+        # Clear screen
         clear_background(ctx)
         
-        # --- Pet Critical Status Check ---
-        is_critical = (self.poo == MAX_STAT or 
-                       self.happiness == MIN_STAT or 
-                       self.hunger == MIN_STAT)
+        # Save graphics state
+        ctx.save()
 
-        # --- 1. Draw Pet Visual (Simple Square) ---
-        pet_color = (1, 0.5, 0.8) # Default Pink/Purple
+        # --- Draw Pet Body ---
+        pet_color = (1, 0.5, 0.8)  # Default pink
 
-        # Priority 1: High Poo (Brown)
+        # Change color based on stats (priority order)
         if self.poo > 75:
-            pet_color = (0.5, 0.3, 0.2) 
-        
-        # Priority 2: Very Hungry (Green)
-        if self.hunger < 15:
-            pet_color = (0.0, 1.0, 0.0)
-        
-        # Priority 3: Low Happiness (Blue), only if not currently overriding for poo/hunger
-        if self.happiness < 30 and self.hunger >= 15 and self.poo <= 75:
-             pet_color = (0.0, 0.5, 1.0) # Blue (Sad)
+            pet_color = (0.5, 0.3, 0.2)  # Brown (dirty)
+        elif self.hunger < 15:
+            pet_color = (0.0, 1.0, 0.0)  # Green (hungry)
+        elif self.happiness < 30:
+            pet_color = (0.0, 0.5, 1.0)  # Blue (sad)
 
-        # Draw the main pet body using standard rectangle fill
+        # Draw pet square
         ctx.rgb(*pet_color)
-        # Centered at (0, -75). 
-        ctx.rectangle(-30, -105, 60, 60).fill()
+        ctx.rectangle(-30, -105, 60, 60)
+        ctx.fill()
 
-        # --- Draw Eyes ---
-        eye_size = 10
+        # Draw eyes (black squares)
         ctx.rgb(0, 0, 0)
-        
-        # Eyes are simple filled rectangles, avoiding 'stroke' which caused issues.
-        # Right Eye (centered near 15, -85)
-        ctx.rectangle(15 - eye_size/2, -85 - eye_size/2, eye_size, eye_size).fill()
-        # Left Eye (centered near -15, -85)
-        ctx.rectangle(-15 - eye_size/2, -85 - eye_size/2, eye_size, eye_size).fill()
+        eye_size = 10
+        # Right eye
+        ctx.rectangle(15 - eye_size/2, -85 - eye_size/2, eye_size, eye_size)
+        ctx.fill()
+        # Left eye
+        ctx.rectangle(-15 - eye_size/2, -85 - eye_size/2, eye_size, eye_size)
+        ctx.fill()
 
-        # Explicitly reset line_width as a safety measure (though less necessary now)
-        ctx.line_width = 1 
+        ctx.restore()
 
-        # --- 2. Display Status Message ---
-        ctx.font_size = 18
+        # --- Status Message ---
         ctx.rgb(1, 1, 1)
-        ctx.move_to(0, -15) # Shifted up from Y=0 to Y=-15
-        ctx.text_align = "center" 
+        ctx.font_size = 18
+        # Centered text using move_to only (no text_align)
+        ctx.move_to(-40, -15)
         ctx.text(self.status_message)
 
+        # --- Stat Bars ---
+        self.draw_stat_bar(ctx, 5, "Hunger:", self.hunger, (1.0, 0.7, 0.0))
+        self.draw_stat_bar(ctx, 20, "Happy:", self.happiness, (0.0, 1.0, 0.0))
+        self.draw_stat_bar(ctx, 35, "Poo:", self.poo, (0.6, 0.4, 0.2))
 
-        # --- 3. Draw Stat Bars ---
-        self.draw_stat_bar(ctx, 5, "Hunger:", self.hunger, (1.0, 0.7, 0.0)) # Y=5 
-        self.draw_stat_bar(ctx, 20, "Happy:", self.happiness, (0.0, 1.0, 0.0)) # Y=20 
-        self.draw_stat_bar(ctx, 35, "Poo:", self.poo, (0.6, 0.4, 0.2)) # Y=35 
-
-        # --- 4. Draw Controls Hint ---
-        ctx.font_size = 10 
+        # --- Controls Hint ---
         ctx.rgb(0.7, 0.7, 0.7)
-        ctx.text_align = "center"
+        ctx.font_size = 10
         
-        # Line 1 (UP action) 
-        ctx.move_to(0, 65) 
+        # All centered using move_to only
+        ctx.move_to(-30, 65)
         ctx.text("UP=Feed")
-
-        # Line 2 (RIGHT action) 
-        ctx.move_to(0, 77) 
+        ctx.move_to(-30, 77)
         ctx.text("RIGHT=Play")
-        
-        # Line 3 (CONFIRM action) 
-        ctx.move_to(0, 89) 
+        ctx.move_to(-30, 89)
         ctx.text("CONFIRM=Clean")
-        
-        # Line 4 (CANCEL action) 
-        ctx.move_to(0, 101) 
+        ctx.move_to(-30, 101)
         ctx.text("CANCEL=Exit")
 
 
-# This is the standard export line for Tildagon OS apps
+# Standard export for Tildagon OS apps
 __app_export__ = Badgagotchi
