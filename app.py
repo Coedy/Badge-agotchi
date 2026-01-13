@@ -26,6 +26,27 @@ class Badgagotchi(app.App):
         self.tick_counter = 0
         self.button_states = Buttons(self)
         self.status_message = "Hi There!"
+        
+        # Game over state
+        self.game_over = False
+        self.death_reason = ""
+
+
+    def _check_game_over(self):
+        """Check if any stat has reached a critical failure state."""
+        if self.hunger <= MIN_STAT:
+            self.game_over = True
+            self.death_reason = "Died of Hunger"
+            return True
+        elif self.happiness <= MIN_STAT:
+            self.game_over = True
+            self.death_reason = "Got too sad"
+            return True
+        elif self.poo >= MAX_STAT:
+            self.game_over = True
+            self.death_reason = "Absolutely covered in poo"
+            return True
+        return False
 
 
     def _process_decay(self, hunger_decay, happiness_decay, poo_growth):
@@ -46,13 +67,13 @@ class Badgagotchi(app.App):
         self.hunger = max(MIN_STAT, min(MAX_STAT, self.hunger))
         self.happiness = max(MIN_STAT, min(MAX_STAT, self.happiness))
         self.poo = max(MIN_STAT, min(MAX_STAT, self.poo))
+        
+        # Check for game over conditions
+        self._check_game_over()
 
 
     def background_update(self, delta):
-        """
-        CRITICAL FIX: Added delta parameter as REQUIRED by badge OS.
-        Called every 0.05 seconds when app is minimized. Claude update
-        """
+        
         self.tick_counter += 1
 
         if self.tick_counter >= TICK_RATE:
@@ -71,6 +92,26 @@ class Badgagotchi(app.App):
         Handles user input and fast decay.
         """
         
+        # Always check for CANCEL button to exit
+        if self.button_states.get(BUTTON_TYPES["CANCEL"]):
+            self.button_states.clear()
+            self.minimise()
+            return
+        
+        # If game over, allow restart with CONFIRM button
+        if self.game_over:
+            if self.button_states.get(BUTTON_TYPES["CONFIRM"]):
+                self.button_states.clear()
+                # Reset game state
+                self.hunger = 70
+                self.happiness = 70
+                self.poo = 0
+                self.game_over = False
+                self.death_reason = ""
+                self.status_message = "Hi There!"
+                self.tick_counter = 0
+            return  # Don't process normal updates if game over
+        
         # --- Time-based Decay Logic ---
         self.tick_counter += 1
 
@@ -84,23 +125,18 @@ class Badgagotchi(app.App):
                 poo_growth=12
             )
 
-            # Update status message
-            if self.hunger < 30:
-                self.status_message = "I'm hungry!"
-            elif self.poo > POO_THRESHOLD:
-                self.status_message = "I'm gunna Poo!"
-            elif self.happiness < 30:
-                self.status_message = "Urgh, I'm Bored!"
-            else:
-                self.status_message = "This is Great!"
+            # Update status message (only if not game over)
+            if not self.game_over:
+                if self.hunger < 30:
+                    self.status_message = "I'm hungry!"
+                elif self.poo > POO_THRESHOLD:
+                    self.status_message = "I'm gunna Poo!"
+                elif self.happiness < 30:
+                    self.status_message = "Urgh, I'm Bored!"
+                else:
+                    self.status_message = "This is Great!"
 
-        # Always check for CANCEL button to exit
-        if self.button_states.get(BUTTON_TYPES["CANCEL"]):
-            self.button_states.clear()
-            self.minimise()
-            return
-
-        # --- User Actions ---
+        # --- User Actions (only if not game over) ---
 
         # UP button: Feed
         if self.button_states.get(BUTTON_TYPES["UP"]):
@@ -125,7 +161,6 @@ class Badgagotchi(app.App):
 
 
     def draw_stat_bar(self, ctx, y_pos, label, value, color_rgb):
-        """Draw a single stat bar. SAFE version with extra validation."""
         bar_width = 130
         bar_height = 12
         
@@ -201,7 +236,7 @@ class Badgagotchi(app.App):
         ctx.rgb(1, 1, 1)
         ctx.font_size = 18
         # Centered text using move_to only (no text_align)
-        ctx.move_to(-40, -15)
+        ctx.move_to(0, -15)
         ctx.text(self.status_message)
 
         # --- Stat Bars ---
@@ -214,13 +249,13 @@ class Badgagotchi(app.App):
         ctx.font_size = 10
         
         # All centered using move_to only
-        ctx.move_to(-30, 65)
+        ctx.move_to(0, 65)
         ctx.text("UP=Feed")
-        ctx.move_to(-30, 77)
+        ctx.move_to(0, 77)
         ctx.text("RIGHT=Play")
-        ctx.move_to(-30, 89)
+        ctx.move_to(0, 89)
         ctx.text("CONFIRM=Clean")
-        ctx.move_to(-30, 101)
+        ctx.move_to(0, 101)
         ctx.text("CANCEL=Exit")
 
 
