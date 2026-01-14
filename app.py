@@ -44,7 +44,7 @@ class Badgagotchi(app.App):
             return True
         elif self.poo >= MAX_STAT:
             self.game_over = True
-            self.death_reason = "Absolutely covered in poo"
+            self.death_reason = "Covered in poo"
             return True
         return False
 
@@ -73,7 +73,9 @@ class Badgagotchi(app.App):
 
 
     def background_update(self, delta):
-        
+        """
+        Called every 0.05 seconds when app is minimized.
+        """
         self.tick_counter += 1
 
         if self.tick_counter >= TICK_RATE:
@@ -161,6 +163,7 @@ class Badgagotchi(app.App):
 
 
     def draw_stat_bar(self, ctx, y_pos, label, value, color_rgb):
+        """Draw a single stat bar. SAFE version with extra validation."""
         bar_width = 130
         bar_height = 12
         
@@ -201,6 +204,49 @@ class Badgagotchi(app.App):
         # Clear screen
         clear_background(ctx)
         
+        # --- GAME OVER SCREEN ---
+        if self.game_over:
+            # Draw dead pet (gray/faded)
+            ctx.rgb(0.3, 0.3, 0.3)
+            ctx.rectangle(-30, -105, 60, 60)
+            ctx.fill()
+            
+            # Draw X eyes using rectangles
+            ctx.rgb(1, 0, 0)
+            # Left eye X (simple cross shape)
+            ctx.rectangle(-18, -88, 8, 2)
+            ctx.fill()
+            ctx.rectangle(-15, -91, 2, 8)
+            ctx.fill()
+            # Right eye X
+            ctx.rectangle(12, -88, 8, 2)
+            ctx.fill()
+            ctx.rectangle(15, -91, 2, 8)
+            ctx.fill()
+            
+            # Game Over text
+            ctx.rgb(1, 0, 0)
+            ctx.font_size = 24
+            ctx.move_to(-60, -20)
+            ctx.text("GAME OVER")
+            
+            # Death reason text
+            ctx.rgb(1, 1, 1)
+            ctx.font_size = 14
+            ctx.move_to(-70, 10)
+            ctx.text(self.death_reason)
+            
+            # Restart instruction
+            ctx.rgb(0.7, 0.7, 0.7)
+            ctx.font_size = 12
+            ctx.move_to(-80, 50)
+            ctx.text("CONFIRM to restart")
+            ctx.move_to(-70, 70)
+            ctx.text("CANCEL to exit")
+            
+            return  # Exit early - don't draw normal game UI
+        
+        # --- NORMAL GAME SCREEN ---
         # Save graphics state
         ctx.save()
 
@@ -235,8 +281,7 @@ class Badgagotchi(app.App):
         # --- Status Message ---
         ctx.rgb(1, 1, 1)
         ctx.font_size = 18
-        # Centered text using move_to only (no text_align)
-        ctx.move_to(0, -15)
+        ctx.move_to(-40, -15)
         ctx.text(self.status_message)
 
         # --- Stat Bars ---
@@ -248,14 +293,13 @@ class Badgagotchi(app.App):
         ctx.rgb(0.7, 0.7, 0.7)
         ctx.font_size = 10
         
-        # All centered using move_to only
-        ctx.move_to(0, 65)
+        ctx.move_to(-30, 65)
         ctx.text("UP=Feed")
-        ctx.move_to(0, 77)
+        ctx.move_to(-30, 77)
         ctx.text("RIGHT=Play")
-        ctx.move_to(0, 89)
+        ctx.move_to(-30, 89)
         ctx.text("CONFIRM=Clean")
-        ctx.move_to(0, 101)
+        ctx.move_to(-30, 101)
         ctx.text("CANCEL=Exit")
 
 
