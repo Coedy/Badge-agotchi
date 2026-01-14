@@ -38,9 +38,17 @@ class Badgagotchi(app.App):
             self.game_over = True
             self.death_reason = "Died of Hunger"
             return True
+        elif self.hunger >= MAX_STAT:
+            self.game_over = True
+            self.death_reason = "Oof That's too much food"
+            return True
         elif self.happiness <= MIN_STAT:
             self.game_over = True
             self.death_reason = "Got too sad"
+            return True
+        elif self.happiness >= MAX_STAT:
+            self.game_over = True
+            self.death_reason = "Died of exhaustion"
             return True
         elif self.poo >= MAX_STAT:
             self.game_over = True
@@ -224,24 +232,26 @@ class Badgagotchi(app.App):
             ctx.rectangle(15, -91, 2, 8)
             ctx.fill()
             
-            # Game Over text
+            # Game Over text (centered)
             ctx.rgb(1, 0, 0)
             ctx.font_size = 24
             ctx.move_to(-60, -20)
             ctx.text("GAME OVER")
             
-            # Death reason text
+            # Death reason text (centered)
             ctx.rgb(1, 1, 1)
             ctx.font_size = 14
-            ctx.move_to(-70, 10)
+            # Calculate approximate center based on text length
+            reason_offset = -len(self.death_reason) * 3.5
+            ctx.move_to(reason_offset, 10)
             ctx.text(self.death_reason)
             
-            # Restart instruction
+            # Restart instruction (centered)
             ctx.rgb(0.7, 0.7, 0.7)
             ctx.font_size = 12
-            ctx.move_to(-80, 50)
+            ctx.move_to(-65, 50)
             ctx.text("CONFIRM to restart")
-            ctx.move_to(-70, 70)
+            ctx.move_to(-50, 70)
             ctx.text("CANCEL to exit")
             
             return  # Exit early - don't draw normal game UI
@@ -278,10 +288,12 @@ class Badgagotchi(app.App):
 
         ctx.restore()
 
-        # --- Status Message ---
+        # --- Status Message (centered) ---
         ctx.rgb(1, 1, 1)
         ctx.font_size = 18
-        ctx.move_to(-40, -15)
+        # Calculate approximate center based on text length
+        msg_offset = -len(self.status_message) * 4.5
+        ctx.move_to(msg_offset, -15)
         ctx.text(self.status_message)
 
         # --- Stat Bars ---
