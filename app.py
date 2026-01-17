@@ -90,9 +90,9 @@ class Badgagotchi(app.App):
             self.tick_counter = 0
             # Slower decay for background mode
             self._process_decay(
-                hunger_decay=4, 
-                happiness_decay=2, 
-                poo_growth=6
+                hunger_decay=1, 
+                happiness_decay=1, 
+                poo_growth=2
             )
 
 
@@ -130,9 +130,9 @@ class Badgagotchi(app.App):
 
             # Fast decay for foreground mode
             self._process_decay(
-                hunger_decay=8, 
-                happiness_decay=5, 
-                poo_growth=12
+                hunger_decay=2, 
+                happiness_decay=2, 
+                poo_growth=3
             )
 
             # Update status message (only if not game over)
@@ -175,9 +175,19 @@ class Badgagotchi(app.App):
         # CONFIRM button: Clean
         elif self.button_states.get(BUTTON_TYPES["CONFIRM"]):
             self.button_states.clear()
+            
+            # Only reward cleaning if poo is over half (50)
+            if self.poo > POO_THRESHOLD:
+                # Pet is happy to be cleaned when dirty
+                self.happiness = min(MAX_STAT, self.happiness + 10)
+                self.status_message = "Ahhh, clean."
+            else:
+                # Pet is annoyed by unnecessary cleaning
+                self.happiness = max(MIN_STAT, self.happiness - 5)
+                self.status_message = "Hey! I was already pretty clean!"
+            
+            # Always reset poo regardless
             self.poo = 0
-            self.happiness = min(MAX_STAT, self.happiness + 15)
-            self.status_message = "Ahhh, clean."
 
 
     def draw_stat_bar(self, ctx, y_pos, label, value, color_rgb):
