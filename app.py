@@ -30,6 +30,9 @@ class Badgagotchi(app.App):
         # Game over state
         self.game_over = False
         self.death_reason = ""
+        
+        # Intro screen state
+        self.show_intro = True
 
 
     def _check_game_over(self):
@@ -108,6 +111,13 @@ class Badgagotchi(app.App):
             self.minimise()
             return
         
+        # Handle intro screen
+        if self.show_intro:
+            if self.button_states.get(BUTTON_TYPES["CONFIRM"]):
+                self.button_states.clear()
+                self.show_intro = False
+            return  # Don't process game logic during intro
+        
         # If game over, allow restart with CONFIRM button
         if self.game_over:
             if self.button_states.get(BUTTON_TYPES["CONFIRM"]):
@@ -184,7 +194,7 @@ class Badgagotchi(app.App):
             else:
                 # Pet is annoyed by unnecessary cleaning
                 self.happiness = max(MIN_STAT, self.happiness - 5)
-                self.status_message = "Hey! I was already pretty clean!"
+                self.status_message = "Already clean!"
             
             # Always reset poo regardless
             self.poo = 0
@@ -231,6 +241,56 @@ class Badgagotchi(app.App):
         """
         # Clear screen
         clear_background(ctx)
+        
+        # --- INTRO SCREEN ---
+        if self.show_intro:
+            # Title
+            ctx.rgb(1, 0.5, 0.8)  # Pink
+            ctx.font_size = 28
+            ctx.move_to(-75, -80)
+            ctx.text("Badgagotchi")
+            
+            # Draw happy pet with ^ eyes
+            ctx.rgb(1, 0.5, 0.8)  # Pink
+            ctx.rectangle(-30, -50, 60, 60)
+            ctx.fill()
+            
+            # Happy eyes (^ shape using small rectangles)
+            ctx.rgb(0, 0, 0)
+            # Left eye ^
+            ctx.rectangle(-20, -28, 3, 8)
+            ctx.fill()
+            ctx.rectangle(-17, -31, 3, 8)
+            ctx.fill()
+            ctx.rectangle(-14, -28, 3, 8)
+            ctx.fill()
+            # Right eye ^
+            ctx.rectangle(10, -28, 3, 8)
+            ctx.fill()
+            ctx.rectangle(13, -31, 3, 8)
+            ctx.fill()
+            ctx.rectangle(16, -28, 3, 8)
+            ctx.fill()
+            
+            # Introduction text
+            ctx.rgb(1, 1, 1)
+            ctx.font_size = 14
+            ctx.move_to(-75, 25)
+            ctx.text("This is Chip the")
+            ctx.move_to(-50, 43)
+            ctx.text("Badge Pet.")
+            
+            ctx.font_size = 16
+            ctx.move_to(-55, 65)
+            ctx.text("Look after it!")
+            
+            # Continue prompt
+            ctx.rgb(0.7, 0.7, 0.7)
+            ctx.font_size = 12
+            ctx.move_to(-70, 95)
+            ctx.text("CONFIRM to Continue")
+            
+            return  # Don't draw game UI during intro
         
         # --- GAME OVER SCREEN ---
         if self.game_over:
