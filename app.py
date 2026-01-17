@@ -151,16 +151,26 @@ class Badgagotchi(app.App):
         # UP button: Feed
         if self.button_states.get(BUTTON_TYPES["UP"]):
             self.button_states.clear()
-            self.hunger = min(MAX_STAT, self.hunger + 30)
+            self.hunger = self.hunger + 30
+            # Check for overfeed BEFORE clamping
+            if self.hunger >= MAX_STAT:
+                self.hunger = MAX_STAT
+                self._check_game_over()
             self.poo = min(MAX_STAT, self.poo + 5)
-            self.status_message = "Yum!"
+            if not self.game_over:
+                self.status_message = "Yum!"
 
         # RIGHT button: Play 
         elif self.button_states.get(BUTTON_TYPES["RIGHT"]):
             self.button_states.clear()
-            self.happiness = min(MAX_STAT, self.happiness + 30)
-            self.hunger = max(MIN_STAT, self.hunger - 10) 
-            self.status_message = "Haha! Woo!"
+            self.happiness = self.happiness + 30
+            # Check for over-playing BEFORE clamping
+            if self.happiness >= MAX_STAT:
+                self.happiness = MAX_STAT
+                self._check_game_over()
+            self.hunger = max(MIN_STAT, self.hunger - 10)
+            if not self.game_over:
+                self.status_message = "Haha! Woo!"
 
         # CONFIRM button: Clean
         elif self.button_states.get(BUTTON_TYPES["CONFIRM"]):
