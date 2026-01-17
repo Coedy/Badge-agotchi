@@ -18,8 +18,9 @@ Progress:<br />
 :+1: Get a github set up and work out how to get the app added<br />
 :metal: Get the thing working on the badge<br />
 :+1: Add a Game Over system<br />
+:+1: Slow the decay to something more sensible<br />
 
 Next up:<br />
-:grey_question: Slow the decay to something more sensible<br />
 :grey_question: Add basic animations<br />
 :grey_question: Add an intro screen<br />
+:grey_question: Add a previous best high score (length of time) to the intro screen<br />
