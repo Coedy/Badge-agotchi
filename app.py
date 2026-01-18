@@ -41,6 +41,63 @@ class Badgagotchi(app.App):
         # LED control
         self.led_brightness = 0
         self.led_direction = 1
+        self.led_warning_counter = 0
+        self.led_warning_active = False
+
+
+    def _check_for_warnings(self):
+        """Check if stats are critically low and trigger LED warning."""
+        # Only warn if not already warning and not in game over
+        if self.led_warning_active or self.game_over:
+            return
+            
+        # Check if any stat is within 20 points of game over
+        critical = (self.hunger <= 20 or self.hunger >= 80 or 
+                   self.happiness <= 20 or self.happiness >= 80 or 
+                   self.poo >= 80)
+        
+        if critical:
+            self._trigger_led_warning()
+
+
+    def _trigger_led_warning(self):
+        """Briefly flash LEDs to warn user."""
+        try:
+            self.led_warning_active = True
+            self.led_warning_counter = 0
+            # Disable default pattern
+            eventbus.emit(PatternDisable())
+        except:
+            pass
+
+
+    def _update_led_warning(self):
+        """Update warning LED flash effect."""
+        if not self.led_warning_active:
+            return
+            
+        try:
+            self.led_warning_counter += 1
+            
+            # Flash yellow 3 times (on for 10 ticks, off for 10 ticks)
+            cycle = (self.led_warning_counter // 10) % 2
+            
+            if cycle == 0:  # LEDs on (yellow)
+                for i in range(1, 13):
+                    tildagonos.leds[i] = (255, 255, 0)
+            else:  # LEDs off
+                for i in range(1, 13):
+                    tildagonos.leds[i] = (0, 0, 0)
+            
+            tildagonos.leds.write()
+            
+            # Stop after 60 ticks (3 full flashes)
+            if self.led_warning_counter >= 60:
+                self.led_warning_active = False
+                # Re-enable default pattern
+                eventbus.emit(PatternEnable())
+        except:
+            pass
 
 
     def _check_game_over(self):
@@ -140,6 +197,10 @@ class Badgagotchi(app.App):
         """
         Called every 0.05 seconds when app is minimized.
         """
+        # Update LED warning flash if active
+        if self.led_warning_active:
+            self._update_led_warning()
+        
         self.tick_counter += 1
 
         if self.tick_counter >= TICK_RATE:
@@ -150,6 +211,9 @@ class Badgagotchi(app.App):
                 happiness_decay=1, 
                 poo_growth=2
             )
+            
+            # Check if we should warn the user
+            self._check_for_warnings()
 
 
     def update(self, delta):
@@ -161,6 +225,13 @@ class Badgagotchi(app.App):
         # Always check for CANCEL button to exit
         if self.button_states.get(BUTTON_TYPES["CANCEL"]):
             self.button_states.clear()
+            # Stop LEDs if game over when exiting
+            if self.game_over:
+                self._stop_game_over_leds()
+            # Stop warning LEDs if active
+            if self.led_warning_active:
+                self.led_warning_active = False
+                eventbus.emit(PatternEnable())
             self.minimise()
             return
         
@@ -302,11 +373,16 @@ class Badgagotchi(app.App):
         
         # --- INTRO SCREEN ---
         if self.show_intro:
-            # Title
+            ctx.save()
+            
+            # Title - properly centered using text_width
             ctx.rgb(1, 0.5, 0.8)  # Pink
+            ctx.font = "Arimo Bold"
             ctx.font_size = 28
-            ctx.move_to(-75, -80)
-            ctx.text("Badgagotchi")
+            title = "Badgagotchi"
+            title_width = ctx.text_width(title)
+            ctx.move_to(-title_width / 2, -80)
+            ctx.text(title)
             
             # Draw happy pet with ^ eyes
             ctx.rgb(1, 0.5, 0.8)  # Pink
@@ -330,24 +406,35 @@ class Badgagotchi(app.App):
             ctx.rectangle(16, -28, 3, 8)
             ctx.fill()
             
-            # Introduction text - FIXED: moved RIGHT (positive direction)
+            # Introduction text - properly centered
             ctx.rgb(1, 1, 1)
+            ctx.font = "Arimo Regular"
             ctx.font_size = 14
-            ctx.move_to(-50, 25)
-            ctx.text("This is Chip the")
-            ctx.move_to(-43, 43)
-            ctx.text("Badge Pet.")
+            line1 = "This is Chip the"
+            line1_width = ctx.text_width(line1)
+            ctx.move_to(-line1_width / 2, 25)
+            ctx.text(line1)
+            
+            line2 = "Badge Pet."
+            line2_width = ctx.text_width(line2)
+            ctx.move_to(-line2_width / 2, 43)
+            ctx.text(line2)
             
             ctx.font_size = 16
-            ctx.move_to(-50, 65)
-            ctx.text("Look after it!")
+            line3 = "Look after it!"
+            line3_width = ctx.text_width(line3)
+            ctx.move_to(-line3_width / 2, 65)
+            ctx.text(line3)
             
-            # Continue prompt - FIXED: moved RIGHT
+            # Continue prompt - properly centered
             ctx.rgb(0.7, 0.7, 0.7)
             ctx.font_size = 12
-            ctx.move_to(-65, 95)
-            ctx.text("CONFIRM to Continue")
+            prompt = "CONFIRM to Continue"
+            prompt_width = ctx.text_width(prompt)
+            ctx.move_to(-prompt_width / 2, 95)
+            ctx.text(prompt)
             
+            ctx.restore()
             return  # Don't draw game UI during intro
         
         # --- GAME OVER SCREEN ---
@@ -426,12 +513,12 @@ class Badgagotchi(app.App):
 
         ctx.restore()
 
-        # --- Status Message (centered) ---
+        # --- Status Message (properly centered) ---
         ctx.rgb(1, 1, 1)
+        ctx.font = "Arimo Regular"
         ctx.font_size = 18
-        # Calculate approximate center based on text length
-        msg_offset = -len(self.status_message) * 4.5
-        ctx.move_to(msg_offset, -15)
+        msg_width = ctx.text_width(self.status_message)
+        ctx.move_to(-msg_width / 2, -15)
         ctx.text(self.status_message)
 
         # --- Stat Bars ---
