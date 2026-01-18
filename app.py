@@ -1,7 +1,10 @@
 import app
 from app_components import clear_background 
 from events.input import Buttons, BUTTON_TYPES
-import asyncio
+from tildagonos import tildagonos
+from system.eventbus import eventbus
+from system.patterndisplay.events import PatternDisable, PatternEnable
+import math
 
 # --- Badgagotchi Constants ---
 MAX_STAT = 100
@@ -36,7 +39,8 @@ class Badgagotchi(app.App):
         self.show_intro = True
         
         # LED control
-        self.led_task = None
+        self.led_brightness = 0
+        self.led_direction = 1
 
 
     def _check_game_over(self):
@@ -72,27 +76,30 @@ class Badgagotchi(app.App):
     def _start_game_over_leds(self):
         """Start red breathing LED pattern for game over."""
         try:
-            import led
-            if self.led_task:
-                self.led_task.cancel()
-            self.led_task = asyncio.create_task(self._breathe_red_leds())
+            # Disable the default pattern
+            eventbus.emit(PatternDisable())
+            self.led_brightness = 0
+            self.led_direction = 1
         except:
-            pass  # LEDs not available or failed
+            pass
 
 
-    async def _breathe_red_leds(self):
-        """Breathe LEDs red during game over."""
+    def _update_game_over_leds(self):
+        """Update breathing red LEDs during game over."""
         try:
-            import led
-            import math
-            while self.game_over:
-                for i in range(100):
-                    if not self.game_over:
-                        break
-                    brightness = (math.sin(i / 15.9) + 1) / 2
-                    for i in range(12):
-                        led.set_rgb(i, int(brightness * 255), 0, 0)
-                    await asyncio.sleep(0.05)
+            # Breathe effect
+            self.led_brightness += self.led_direction * 5
+            if self.led_brightness >= 255:
+                self.led_brightness = 255
+                self.led_direction = -1
+            elif self.led_brightness <= 0:
+                self.led_brightness = 0
+                self.led_direction = 1
+            
+            # Set all LEDs to red with breathing brightness
+            for i in range(1, 13):
+                tildagonos.leds[i] = (int(self.led_brightness), 0, 0)
+            tildagonos.leds.write()
         except:
             pass
 
@@ -100,12 +107,8 @@ class Badgagotchi(app.App):
     def _stop_game_over_leds(self):
         """Stop the red breathing LED pattern."""
         try:
-            if self.led_task:
-                self.led_task.cancel()
-                self.led_task = None
-            # Reset LEDs to default pattern
-            import led
-            led.clear()
+            # Re-enable the default pattern
+            eventbus.emit(PatternEnable())
         except:
             pass
 
@@ -170,6 +173,9 @@ class Badgagotchi(app.App):
         
         # If game over, allow restart with CONFIRM button
         if self.game_over:
+            # Update breathing LED effect
+            self._update_game_over_leds()
+            
             if self.button_states.get(BUTTON_TYPES["CONFIRM"]):
                 self.button_states.clear()
                 # Stop game over LEDs
@@ -299,7 +305,7 @@ class Badgagotchi(app.App):
             # Title
             ctx.rgb(1, 0.5, 0.8)  # Pink
             ctx.font_size = 28
-            ctx.move_to(-85, -80)
+            ctx.move_to(-75, -80)
             ctx.text("Badgagotchi")
             
             # Draw happy pet with ^ eyes
@@ -324,22 +330,22 @@ class Badgagotchi(app.App):
             ctx.rectangle(16, -28, 3, 8)
             ctx.fill()
             
-            # Introduction text - centered
+            # Introduction text - FIXED: moved RIGHT (positive direction)
             ctx.rgb(1, 1, 1)
             ctx.font_size = 14
-            ctx.move_to(-62, 25)
+            ctx.move_to(-50, 25)
             ctx.text("This is Chip the")
-            ctx.move_to(-55, 43)
+            ctx.move_to(-43, 43)
             ctx.text("Badge Pet.")
             
             ctx.font_size = 16
-            ctx.move_to(-58, 65)
+            ctx.move_to(-50, 65)
             ctx.text("Look after it!")
             
-            # Continue prompt - centered
+            # Continue prompt - FIXED: moved RIGHT
             ctx.rgb(0.7, 0.7, 0.7)
             ctx.font_size = 12
-            ctx.move_to(-75, 95)
+            ctx.move_to(-65, 95)
             ctx.text("CONFIRM to Continue")
             
             return  # Don't draw game UI during intro
