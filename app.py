@@ -1,6 +1,7 @@
 import app
 from app_components import clear_background 
 from events.input import Buttons, BUTTON_TYPES
+import asyncio
 
 # --- Badgagotchi Constants ---
 MAX_STAT = 100
@@ -33,6 +34,9 @@ class Badgagotchi(app.App):
         
         # Intro screen state
         self.show_intro = True
+        
+        # LED control
+        self.led_task = None
 
 
     def _check_game_over(self):
@@ -40,24 +44,70 @@ class Badgagotchi(app.App):
         if self.hunger <= MIN_STAT:
             self.game_over = True
             self.death_reason = "Died of Hunger"
+            self._start_game_over_leds()
             return True
         elif self.hunger >= MAX_STAT:
             self.game_over = True
             self.death_reason = "Oof That's too much food"
+            self._start_game_over_leds()
             return True
         elif self.happiness <= MIN_STAT:
             self.game_over = True
             self.death_reason = "Got too sad"
+            self._start_game_over_leds()
             return True
         elif self.happiness >= MAX_STAT:
             self.game_over = True
             self.death_reason = "Died of exhaustion"
+            self._start_game_over_leds()
             return True
         elif self.poo >= MAX_STAT:
             self.game_over = True
             self.death_reason = "Covered in poo"
+            self._start_game_over_leds()
             return True
         return False
+
+
+    def _start_game_over_leds(self):
+        """Start red breathing LED pattern for game over."""
+        try:
+            import led
+            if self.led_task:
+                self.led_task.cancel()
+            self.led_task = asyncio.create_task(self._breathe_red_leds())
+        except:
+            pass  # LEDs not available or failed
+
+
+    async def _breathe_red_leds(self):
+        """Breathe LEDs red during game over."""
+        try:
+            import led
+            import math
+            while self.game_over:
+                for i in range(100):
+                    if not self.game_over:
+                        break
+                    brightness = (math.sin(i / 15.9) + 1) / 2
+                    for i in range(12):
+                        led.set_rgb(i, int(brightness * 255), 0, 0)
+                    await asyncio.sleep(0.05)
+        except:
+            pass
+
+
+    def _stop_game_over_leds(self):
+        """Stop the red breathing LED pattern."""
+        try:
+            if self.led_task:
+                self.led_task.cancel()
+                self.led_task = None
+            # Reset LEDs to default pattern
+            import led
+            led.clear()
+        except:
+            pass
 
 
     def _process_decay(self, hunger_decay, happiness_decay, poo_growth):
@@ -122,6 +172,8 @@ class Badgagotchi(app.App):
         if self.game_over:
             if self.button_states.get(BUTTON_TYPES["CONFIRM"]):
                 self.button_states.clear()
+                # Stop game over LEDs
+                self._stop_game_over_leds()
                 # Reset game state
                 self.hunger = 70
                 self.happiness = 70
@@ -247,7 +299,7 @@ class Badgagotchi(app.App):
             # Title
             ctx.rgb(1, 0.5, 0.8)  # Pink
             ctx.font_size = 28
-            ctx.move_to(-75, -80)
+            ctx.move_to(-85, -80)
             ctx.text("Badgagotchi")
             
             # Draw happy pet with ^ eyes
@@ -272,22 +324,22 @@ class Badgagotchi(app.App):
             ctx.rectangle(16, -28, 3, 8)
             ctx.fill()
             
-            # Introduction text
+            # Introduction text - centered
             ctx.rgb(1, 1, 1)
             ctx.font_size = 14
-            ctx.move_to(-75, 25)
+            ctx.move_to(-62, 25)
             ctx.text("This is Chip the")
-            ctx.move_to(-50, 43)
+            ctx.move_to(-55, 43)
             ctx.text("Badge Pet.")
             
             ctx.font_size = 16
-            ctx.move_to(-55, 65)
+            ctx.move_to(-58, 65)
             ctx.text("Look after it!")
             
-            # Continue prompt
+            # Continue prompt - centered
             ctx.rgb(0.7, 0.7, 0.7)
             ctx.font_size = 12
-            ctx.move_to(-70, 95)
+            ctx.move_to(-75, 95)
             ctx.text("CONFIRM to Continue")
             
             return  # Don't draw game UI during intro
