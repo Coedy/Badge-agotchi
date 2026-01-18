@@ -24,9 +24,10 @@ Progress:<br />
 :+1: Add a Game Over system<br />
 :+1: Slow the decay to something more sensible<br />
 :+1: Add an intro screen<br />
+:+1: LED control for Game Over<br />
 
 Next up:<br />
-:grey_question: LED control for Game Over<br />
+:grey_question: LED control for Attention grabbing<br />
 :grey_question: Add basic animations<br />
 :grey_question: Try and add a bitmap for Chip (The pet)<br />
 :grey_question: Add a previous best high score (length of time) to the intro screen<br />
