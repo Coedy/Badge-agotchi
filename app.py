@@ -5,6 +5,7 @@ from tildagonos import tildagonos
 from system.eventbus import eventbus
 from system.patterndisplay.events import PatternDisable, PatternEnable
 import math
+import random
 
 # --- Badgagotchi Constants ---
 MAX_STAT = 100
@@ -43,6 +44,14 @@ class Badgagotchi(app.App):
         self.led_direction = 1
         self.led_warning_counter = 0
         self.led_warning_active = False
+        
+        # Eye animation state
+        self.eye_look_direction = 0  # -1 (left), 0 (center), 1 (right)
+        self.eye_look_counter = 0
+        self.eye_look_duration = 20  # Frames to hold each direction
+        self.blink_active = False
+        self.blink_counter = 0
+        self.blink_duration = 5  # Frames to hold blink
 
 
     def _check_for_warnings(self):
@@ -100,6 +109,27 @@ class Badgagotchi(app.App):
             pass
 
 
+    def _update_eye_animation(self):
+        """Update eye animation state (looking direction and blinking)."""
+        # Blink animation
+        if self.blink_active:
+            self.blink_counter += 1
+            if self.blink_counter >= self.blink_duration:
+                self.blink_active = False
+                self.blink_counter = 0
+        else:
+            # Random chance to blink (1 in 40 frames)
+            if random.randint(1, 40) == 1:
+                self.blink_active = True
+        
+        # Eye looking direction animation
+        self.eye_look_counter += 1
+        if self.eye_look_counter >= self.eye_look_duration:
+            self.eye_look_counter = 0
+            # Randomly pick a new direction: -1 (left), 0 (center), or 1 (right)
+            self.eye_look_direction = random.randint(-1, 1)
+
+
     def _check_game_over(self):
         """Check if any stat has reached a critical failure state."""
         if self.hunger <= MIN_STAT:
@@ -133,6 +163,10 @@ class Badgagotchi(app.App):
     def _start_game_over_leds(self):
         """Start red breathing LED pattern for game over."""
         try:
+            # Stop any active warning LED pattern to prevent strobe effect
+            if self.led_warning_active:
+                self.led_warning_active = False
+                self.led_warning_counter = 0
             # Disable the default pattern
             eventbus.emit(PatternDisable())
             self.led_brightness = 0
@@ -285,6 +319,9 @@ class Badgagotchi(app.App):
                 else:
                     self.status_message = "This is Great!"
 
+        # Update eye animation (only during normal gameplay)
+        self._update_eye_animation()
+
         # --- User Actions (only if not game over) ---
 
         # UP button: Feed
@@ -327,6 +364,36 @@ class Badgagotchi(app.App):
             
             # Always reset poo regardless
             self.poo = 0
+
+
+    def _draw_animated_eyes(self, ctx, pet_color):
+        """Draw animated eyes with looking direction and blinking."""
+        ctx.rgb(0, 0, 0)
+        eye_size = 10
+        eye_x_offset = 15  # Distance from center
+        eye_y = -85
+        
+        # If blinking, draw small horizontal line instead of square
+        if self.blink_active:
+            # Blink: draw horizontal line
+            line_height = 2
+            # Right eye
+            ctx.rectangle(eye_x_offset - 5, eye_y - line_height/2, 10, line_height)
+            ctx.fill()
+            # Left eye
+            ctx.rectangle(-eye_x_offset - 5, eye_y - line_height/2, 10, line_height)
+            ctx.fill()
+        else:
+            # Normal eyes with looking direction
+            # Eye offset based on looking direction (-1, 0, 1)
+            look_offset = self.eye_look_direction * 3
+            
+            # Right eye
+            ctx.rectangle(eye_x_offset - eye_size/2 + look_offset, eye_y - eye_size/2, eye_size, eye_size)
+            ctx.fill()
+            # Left eye
+            ctx.rectangle(-eye_x_offset - eye_size/2 + look_offset, eye_y - eye_size/2, eye_size, eye_size)
+            ctx.fill()
 
 
     def draw_stat_bar(self, ctx, y_pos, label, value, color_rgb):
@@ -381,7 +448,7 @@ class Badgagotchi(app.App):
             ctx.font_size = 28
             title = "Badgagotchi"
             title_width = ctx.text_width(title)
-            ctx.move_to(-title_width / 2, -80)
+            ctx.move_to(-title_width / 2, -65)
             ctx.text(title)
             
             # Draw happy pet with ^ eyes
@@ -457,27 +524,33 @@ class Badgagotchi(app.App):
             ctx.rectangle(15, -91, 2, 8)
             ctx.fill()
             
-            # Game Over text (centered)
+            # Game Over text (properly centered using text_width)
             ctx.rgb(1, 0, 0)
             ctx.font_size = 24
-            ctx.move_to(-60, -20)
-            ctx.text("GAME OVER")
+            game_over_text = "GAME OVER"
+            game_over_width = ctx.text_width(game_over_text)
+            ctx.move_to(-game_over_width / 2, -20)
+            ctx.text(game_over_text)
             
-            # Death reason text (centered)
+            # Death reason text (properly centered using text_width)
             ctx.rgb(1, 1, 1)
-            ctx.font_size = 14
-            # Calculate approximate center based on text length
-            reason_offset = -len(self.death_reason) * 3.5
-            ctx.move_to(reason_offset, 10)
+            ctx.font_size = 18
+            reason_width = ctx.text_width(self.death_reason)
+            ctx.move_to(-reason_width / 2, 10)
             ctx.text(self.death_reason)
             
-            # Restart instruction (centered)
+            # Restart instruction (properly centered using text_width)
             ctx.rgb(0.7, 0.7, 0.7)
             ctx.font_size = 12
-            ctx.move_to(-65, 50)
-            ctx.text("CONFIRM to restart")
-            ctx.move_to(-50, 70)
-            ctx.text("CANCEL to exit")
+            restart_text = "CONFIRM to restart"
+            restart_width = ctx.text_width(restart_text)
+            ctx.move_to(-restart_width / 2, 50)
+            ctx.text(restart_text)
+            
+            exit_text = "CANCEL to exit"
+            exit_width = ctx.text_width(exit_text)
+            ctx.move_to(-exit_width / 2, 70)
+            ctx.text(exit_text)
             
             return  # Exit early - don't draw normal game UI
         
@@ -501,15 +574,8 @@ class Badgagotchi(app.App):
         ctx.rectangle(-30, -105, 60, 60)
         ctx.fill()
 
-        # Draw eyes (black squares)
-        ctx.rgb(0, 0, 0)
-        eye_size = 10
-        # Right eye
-        ctx.rectangle(15 - eye_size/2, -85 - eye_size/2, eye_size, eye_size)
-        ctx.fill()
-        # Left eye
-        ctx.rectangle(-15 - eye_size/2, -85 - eye_size/2, eye_size, eye_size)
-        ctx.fill()
+        # Draw animated eyes
+        self._draw_animated_eyes(ctx, pet_color)
 
         ctx.restore()
 
