@@ -37,4 +37,4 @@ description = "A Tamagotchi style game - VibeCoded with Google Gemini/Claude."
 # increased, we interpret this as a new version being released.
 #
 # Version number must be an string!
-version = "0.2.0"
+version = "0.2.1"
