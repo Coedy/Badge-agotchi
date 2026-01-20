@@ -6,12 +6,16 @@ from system.eventbus import eventbus
 from system.patterndisplay.events import PatternDisable, PatternEnable
 import math
 import random
+import json
+import time
+import os
 
 # --- Badgagotchi Constants ---
 MAX_STAT = 100
 MIN_STAT = 0
 TICK_RATE = 50  # 50 * 0.05s = 2.5 seconds between updates
 POO_THRESHOLD = 50
+SAVE_FILE = "highscore.json"  # Saved in app's own directory
 
 class Badgagotchi(app.App):
     """
@@ -35,6 +39,7 @@ class Badgagotchi(app.App):
         # Game over state
         self.game_over = False
         self.death_reason = ""
+        self.app_should_close = False  # Flag to completely stop the app
         
         # Intro screen state
         self.show_intro = True
@@ -42,7 +47,6 @@ class Badgagotchi(app.App):
         # LED control
         self.led_brightness = 0
         self.led_direction = 1
-        self.led_warning_counter = 0
         self.led_warning_active = False
         
         # Eye animation state
@@ -52,6 +56,13 @@ class Badgagotchi(app.App):
         self.blink_active = False
         self.blink_counter = 0
         self.blink_duration = 5  # Frames to hold blink
+        
+        # High score tracking
+        self.high_score_seconds = 0
+        self.game_start_time = None
+        self.time_alive_seconds = 0
+        self.is_new_high_score = False
+        self._load_high_score()
 
 
     def _check_for_warnings(self):
@@ -70,10 +81,9 @@ class Badgagotchi(app.App):
 
 
     def _trigger_led_warning(self):
-        """Briefly flash LEDs to warn user."""
+        """Start continuous fade LED warning based on stat values."""
         try:
             self.led_warning_active = True
-            self.led_warning_counter = 0
             # Disable default pattern
             eventbus.emit(PatternDisable())
         except:
@@ -81,27 +91,48 @@ class Badgagotchi(app.App):
 
 
     def _update_led_warning(self):
-        """Update warning LED flash effect."""
+        """Update LED fade effect based on stat values."""
         if not self.led_warning_active:
             return
             
         try:
-            self.led_warning_counter += 1
+            # Calculate LED effect based on how close stats are to critical
+            # For each stat pair (low/high), calculate a "danger level" 0-1
+            hunger_danger = max(
+                max(0, 20 - self.hunger) / 20,  # 0-20 range
+                max(0, self.hunger - 80) / 20   # 80-100 range
+            )
+            happiness_danger = max(
+                max(0, 20 - self.happiness) / 20,  # 0-20 range
+                max(0, self.happiness - 80) / 20   # 80-100 range
+            )
+            poo_danger = max(0, self.poo - 80) / 20  # 80-100 range
             
-            # Flash yellow 3 times (on for 10 ticks, off for 10 ticks)
-            cycle = (self.led_warning_counter // 10) % 2
+            # Use the highest danger level across all stats
+            danger_level = max(hunger_danger, happiness_danger, poo_danger)
             
-            if cycle == 0:  # LEDs on (yellow)
-                for i in range(1, 13):
-                    tildagonos.leds[i] = (255, 255, 0)
-            else:  # LEDs off
+            if danger_level == 0:
+                # No danger, turn off LEDs
                 for i in range(1, 13):
                     tildagonos.leds[i] = (0, 0, 0)
+            elif danger_level <= 0.5:  # 0-50% danger: fade in yellow
+                # At 0% danger: dim (20), at 50% danger: half bright (127)
+                brightness = int(20 + danger_level * 2 * 107)
+                for i in range(1, 13):
+                    tildagonos.leds[i] = (brightness, brightness, 0)
+            else:  # 50-100% danger: fade from yellow to red
+                # At 50% danger: yellow at half bright (127, 127, 0)
+                # At 100% danger: red at full bright (255, 0, 0)
+                fade_progress = (danger_level - 0.5) * 2  # 0-1 from 50-100%
+                red = int(127 + fade_progress * 128)
+                green = int(127 * (1 - fade_progress))
+                for i in range(1, 13):
+                    tildagonos.leds[i] = (red, green, 0)
             
             tildagonos.leds.write()
             
-            # Stop after 60 ticks (3 full flashes)
-            if self.led_warning_counter >= 60:
+            # Stop warning if no danger detected
+            if danger_level == 0:
                 self.led_warning_active = False
                 # Re-enable default pattern
                 eventbus.emit(PatternEnable())
@@ -130,34 +161,86 @@ class Badgagotchi(app.App):
             self.eye_look_direction = random.randint(-1, 1)
 
 
+    def _load_high_score(self):
+        """Load high score from persistent storage."""
+        try:
+            with open(SAVE_FILE, 'r') as f:
+                data = json.load(f)
+                self.high_score_seconds = data.get('high_score_seconds', 0)
+        except (OSError, ValueError):
+            # File doesn't exist or is invalid
+            self.high_score_seconds = 0
+
+
+    def _save_high_score(self, seconds):
+        """Save high score to persistent storage."""
+        try:
+            data = {'high_score_seconds': seconds}
+            with open(SAVE_FILE, 'w') as f:
+                json.dump(data, f)
+        except OSError:
+            # Silently fail if we can't write (badge storage issue)
+            pass
+
+
+    def _seconds_to_readable(self, seconds):
+        """Convert seconds to human-readable format (e.g., '1d 2h 30m 45s')."""
+        days = int(seconds // 86400)
+        hours = int((seconds % 86400) // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = int(seconds % 60)
+        
+        parts = []
+        if days > 0:
+            parts.append(f"{days}d")
+        if hours > 0:
+            parts.append(f"{hours}h")
+        if minutes > 0:
+            parts.append(f"{minutes}m")
+        if secs > 0 or not parts:  # Always show seconds if no other units
+            parts.append(f"{secs}s")
+        
+        return " ".join(parts)
+
+
     def _check_game_over(self):
         """Check if any stat has reached a critical failure state."""
+        game_over = False
         if self.hunger <= MIN_STAT:
             self.game_over = True
             self.death_reason = "Died of Hunger"
             self._start_game_over_leds()
-            return True
+            game_over = True
         elif self.hunger >= MAX_STAT:
             self.game_over = True
             self.death_reason = "Oof That's too much food"
             self._start_game_over_leds()
-            return True
+            game_over = True
         elif self.happiness <= MIN_STAT:
             self.game_over = True
             self.death_reason = "Got too sad"
             self._start_game_over_leds()
-            return True
+            game_over = True
         elif self.happiness >= MAX_STAT:
             self.game_over = True
             self.death_reason = "Died of exhaustion"
             self._start_game_over_leds()
-            return True
+            game_over = True
         elif self.poo >= MAX_STAT:
             self.game_over = True
             self.death_reason = "Covered in poo"
             self._start_game_over_leds()
-            return True
-        return False
+            game_over = True
+        
+        # Handle high score tracking
+        if game_over and self.game_start_time is not None:
+            self.time_alive_seconds = time.time() - self.game_start_time
+            if self.time_alive_seconds > self.high_score_seconds:
+                self.is_new_high_score = True
+                self._save_high_score(self.time_alive_seconds)
+                self.high_score_seconds = self.time_alive_seconds
+        
+        return game_over
 
 
     def _start_game_over_leds(self):
@@ -231,6 +314,10 @@ class Badgagotchi(app.App):
         """
         Called every 0.05 seconds when app is minimized.
         """
+        # If the app should be completely closed, stop background updates
+        if self.app_should_close:
+            return
+        
         # Update LED warning flash if active
         if self.led_warning_active:
             self._update_led_warning()
@@ -274,6 +361,14 @@ class Badgagotchi(app.App):
             if self.button_states.get(BUTTON_TYPES["CONFIRM"]):
                 self.button_states.clear()
                 self.show_intro = False
+                # Start the game timer
+                self.game_start_time = time.time()
+                self.is_new_high_score = False
+            elif self.button_states.get(BUTTON_TYPES["CANCEL"]):
+                self.button_states.clear()
+                # Mark app for complete closure (no background updates)
+                self.app_should_close = True
+                self.minimise()
             return  # Don't process game logic during intro
         
         # If game over, allow restart with CONFIRM button
@@ -293,6 +388,17 @@ class Badgagotchi(app.App):
                 self.death_reason = ""
                 self.status_message = "Hi There!"
                 self.tick_counter = 0
+                # Restart the game timer
+                self.game_start_time = time.time()
+                self.time_alive_seconds = 0
+                self.is_new_high_score = False
+            elif self.button_states.get(BUTTON_TYPES["CANCEL"]):
+                self.button_states.clear()
+                # Stop game over LEDs
+                self._stop_game_over_leds()
+                # Mark app for complete closure (no background updates)
+                self.app_should_close = True
+                self.minimise()
             return  # Don't process normal updates if game over
         
         # --- Time-based Decay Logic ---
@@ -493,12 +599,21 @@ class Badgagotchi(app.App):
             ctx.move_to(-line3_width / 2, 65)
             ctx.text(line3)
             
+            # High score display (above prompt)
+            if self.high_score_seconds > 0:
+                ctx.rgb(1, 1, 0)  # Yellow
+                ctx.font_size = 12
+                high_score_text = f"High Score: {self._seconds_to_readable(self.high_score_seconds)}"
+                high_score_width = ctx.text_width(high_score_text)
+                ctx.move_to(-high_score_width / 2, 85)
+                ctx.text(high_score_text)
+            
             # Continue prompt - properly centered
             ctx.rgb(0.7, 0.7, 0.7)
             ctx.font_size = 12
             prompt = "CONFIRM to Continue"
             prompt_width = ctx.text_width(prompt)
-            ctx.move_to(-prompt_width / 2, 95)
+            ctx.move_to(-prompt_width / 2, 100)
             ctx.text(prompt)
             
             ctx.restore()
@@ -539,17 +654,44 @@ class Badgagotchi(app.App):
             ctx.move_to(-reason_width / 2, 10)
             ctx.text(self.death_reason)
             
+            # Time alive display
+            ctx.rgb(0.8, 0.8, 0.8)
+            ctx.font_size = 14
+            time_text = f"Chip lived: {self._seconds_to_readable(self.time_alive_seconds)}"
+            time_width = ctx.text_width(time_text)
+            ctx.move_to(-time_width / 2, 30)
+            ctx.text(time_text)
+            
+            # High score display
+            ctx.rgb(1, 1, 0)  # Yellow
+            high_score_text = f"Best: {self._seconds_to_readable(self.high_score_seconds)}"
+            high_score_width = ctx.text_width(high_score_text)
+            ctx.move_to(-high_score_width / 2, 43)
+            ctx.text(high_score_text)
+            
+            # Draw "HIGH SCORE!" diagonally if new record
+            if self.is_new_high_score:
+                ctx.save()
+                ctx.rgb(1, 1, 0)  # Yellow
+                ctx.font_size = 20
+                ctx.font = "Arimo Bold"
+                high_score_label = "HIGH SCORE!"
+                ctx.rotate(0.3)  # Rotate ~17 degrees
+                ctx.move_to(-70, -60)  # Positioned to cover dead chip
+                ctx.text(high_score_label)
+                ctx.restore()
+            
             # Restart instruction (properly centered using text_width)
             ctx.rgb(0.7, 0.7, 0.7)
             ctx.font_size = 12
             restart_text = "CONFIRM to restart"
             restart_width = ctx.text_width(restart_text)
-            ctx.move_to(-restart_width / 2, 50)
+            ctx.move_to(-restart_width / 2, 65)
             ctx.text(restart_text)
             
             exit_text = "CANCEL to exit"
             exit_width = ctx.text_width(exit_text)
-            ctx.move_to(-exit_width / 2, 70)
+            ctx.move_to(-exit_width / 2, 85)
             ctx.text(exit_text)
             
             return  # Exit early - don't draw normal game UI
