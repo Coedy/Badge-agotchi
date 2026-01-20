@@ -27,8 +27,10 @@ Progress:<br />
 :metal: LED control for Game Over<br />
 :metal: LED control for Attention grabbing<br />
 😎 Add basic animations<br />
+:+1: Add a previous best high score (length of time) to the intro screen<br />
 
 Next up:<br />
 
 :grey_question: Try and add a bitmap for Chip (The pet)<br />
-:grey_question: Add a previous best high score (length of time) to the intro screen<br />
+:grey_question: User Selectable Chip colour<br />
+
