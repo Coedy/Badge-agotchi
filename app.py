@@ -115,17 +115,18 @@ class Badgagotchi(app.App):
                 # No danger, turn off LEDs
                 for i in range(1, 13):
                     tildagonos.leds[i] = (0, 0, 0)
-            elif danger_level <= 0.5:  # 0-50% danger: fade in yellow
-                # At 0% danger: dim (20), at 50% danger: half bright (127)
-                brightness = int(20 + danger_level * 2 * 107)
+            elif danger_level <= 0.5:  # 0-50% danger: dim orange-red
+                # At 0% danger: dim (50, 20, 0), at 50% danger: brighter (200, 100, 0)
+                red = int(50 + danger_level * 2 * 150)
+                green = int(20 + danger_level * 2 * 80)
                 for i in range(1, 13):
-                    tildagonos.leds[i] = (brightness, brightness, 0)
-            else:  # 50-100% danger: fade from yellow to red
-                # At 50% danger: yellow at half bright (127, 127, 0)
-                # At 100% danger: red at full bright (255, 0, 0)
+                    tildagonos.leds[i] = (red, green, 0)
+            else:  # 50-100% danger: fade from orange-red to bright red
+                # At 50% danger: orange-red (200, 100, 0)
+                # At 100% danger: bright red (255, 0, 0)
                 fade_progress = (danger_level - 0.5) * 2  # 0-1 from 50-100%
-                red = int(127 + fade_progress * 128)
-                green = int(127 * (1 - fade_progress))
+                red = int(200 + fade_progress * 55)
+                green = int(100 * (1 - fade_progress))
                 for i in range(1, 13):
                     tildagonos.leds[i] = (red, green, 0)
             
@@ -281,6 +282,10 @@ class Badgagotchi(app.App):
     def _stop_game_over_leds(self):
         """Stop the red breathing LED pattern."""
         try:
+            # Explicitly turn off all LEDs first
+            for i in range(1, 13):
+                tildagonos.leds[i] = (0, 0, 0)
+            tildagonos.leds.write()
             # Re-enable the default pattern
             eventbus.emit(PatternEnable())
         except:
@@ -433,7 +438,7 @@ class Badgagotchi(app.App):
         # UP button: Feed
         if self.button_states.get(BUTTON_TYPES["UP"]):
             self.button_states.clear()
-            self.hunger = self.hunger + 30
+            self.hunger = self.hunger + 15
             # Check for overfeed BEFORE clamping
             if self.hunger >= MAX_STAT:
                 self.hunger = MAX_STAT
@@ -445,7 +450,7 @@ class Badgagotchi(app.App):
         # RIGHT button: Play 
         elif self.button_states.get(BUTTON_TYPES["RIGHT"]):
             self.button_states.clear()
-            self.happiness = self.happiness + 30
+            self.happiness = self.happiness + 15
             # Check for over-playing BEFORE clamping
             if self.happiness >= MAX_STAT:
                 self.happiness = MAX_STAT
