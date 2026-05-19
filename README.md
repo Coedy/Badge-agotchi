@@ -15,22 +15,28 @@ Lately (< v0.1.0) I have been used Claude as it has made much more headway in mu
 
 ![Badge-agotchi](https://github.com/user-attachments/assets/73a7ed50-8f91-4f3d-8d02-af4550e59cf8)
 
-Progress:<br />
+If you close the app (F button, top left) it will run in the background, you should get around 2 minutes of peace if Chip is fully happy, fully fed, and freshly showered.
+If it needs something the light pattern on your badge will fade in to yellow instead of your pattern to get your attention. 
+Quickly open the app. You will have a 5second grace window to work out what it needs, as soon as you click a button the game will un-pause so be quick!
+
+Roadmap:<br />
 :metal: Get the thing working in the simulator<br />
 :+1: Add basic instructions<br />
 :+1: Add display bars<br />
 :+1: Get a github set up and work out how to get the app added<br />
 :metal: Get the thing working on the badge<br />
 :+1: Add a Game Over system<br />
+:+1: Allow it to run in the background<br />
 :+1: Slow the decay to something more sensible<br />
 :+1: Add an intro screen<br />
 :metal: LED control for Game Over<br />
 :metal: LED control for Attention grabbing<br />
 😎 Add basic animations<br />
 :+1: Add a previous best high score (length of time) to the intro screen<br />
+:+1: User Selectable Chip colour<br />
 
 Next up:<br />
 
 :grey_question: Try and add a bitmap for Chip (The pet)<br />
-:grey_question: User Selectable Chip colour<br />
+
 
